@@ -1,0 +1,26 @@
+[Unit]
+Description=NetFusion Multipath Encrypted Bonding Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=netfusion
+Group=netfusion
+EnvironmentFile=/etc/netfusion/bonding-server.env
+ExecStart=/usr/local/bin/netfusion-bonding-server
+Restart=always
+RestartSec=3
+LimitNOFILE=65536
+
+# Security Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target
+

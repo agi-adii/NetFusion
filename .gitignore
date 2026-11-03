@@ -1,0 +1,34 @@
+# Dependencies & Build Outputs
+node_modules/
+dist/
+target/
+src-tauri/target/
+
+# Local Machine Toolchain Overrides & Compiled Binaries
+.cargo/
+NetFusion.exe
+WebView2Loader.dll
+*.pdb
+*.d
+*.o
+*.a
+*.lib
+*.exp
+
+# Runtime Databases, Logs & Partial Downloads
+*.db
+*.db-shm
+*.db-wal
+*.nfdl
+*.log
+
+# Environment & Editor Files
+.DS_Store
+Thumbs.db
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+
+

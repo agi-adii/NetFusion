@@ -1,0 +1,52 @@
+[package]
+name = "netfusion"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "NetFusion — Multi-Network Internet Bonding & Advanced Download Manager"
+
+[lib]
+name = "netfusion_lib"
+crate-type = ["rlib"]
+
+[features]
+default = []
+custom-protocol = ["tauri/custom-protocol"]
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+netfusion-protocol = { path = "../crates/netfusion-protocol" }
+tauri = { version = "2.2", features = ["tray-icon", "image-png"] }
+tauri-plugin-autostart = "2.2"
+tauri-plugin-dialog = "2.2"
+tauri-plugin-notification = "2.2"
+tauri-plugin-opener = "2.2"
+tokio = { version = "1.42", features = ["full"] }
+reqwest = { version = "0.12", default-features = false, features = ["native-tls", "stream", "socks", "json", "gzip"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+socket2 = { version = "0.5", features = ["all"] }
+sha2 = "0.10"
+md-5 = "0.10"
+chacha20poly1305 = "0.10"
+hkdf = "0.12"
+hex = "0.4"
+uuid = { version = "1.11", features = ["v4"] }
+futures-util = "0.3"
+rand = "0.8"
+dirs = "5.0"
+url = "2.5"
+chrono = "0.4"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_NetworkManagement_IpHelper",
+    "Win32_NetworkManagement_Ndis",
+    "Win32_Networking_WinSock",
+] }
+

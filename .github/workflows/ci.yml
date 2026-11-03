@@ -1,0 +1,42 @@
+name: CI & Release Build
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test-and-build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust cargo registry & target
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Typecheck & build frontend assets
+        run: npm run build
+
+      - name: Run Rust workspace unit & integration tests
+        run: cargo test --workspace
+
+      - name: Build standalone Multipath Bonding Server
+        run: cargo build --release -p bonding-server
+
+      - name: Build Tauri Windows Desktop Application
+        run: npx tauri build --no-bundle

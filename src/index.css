@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-app: #f3f5fb;
+    --bg-surface: rgba(255, 255, 255, 0.78);
+    --bg-surface-elevated: rgba(255, 255, 255, 0.94);
+    --border-glass: rgba(99, 102, 241, 0.16);
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+  }
+
+  .dark {
+    --bg-app: #050814;
+    --bg-surface: rgba(14, 21, 48, 0.64);
+    --bg-surface-elevated: rgba(20, 29, 63, 0.82);
+    --border-glass: rgba(167, 139, 250, 0.16);
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #7c8ba8;
+  }
+
+  body {
+    background-color: var(--bg-app);
+    color: var(--text-primary);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+.app-backdrop {
+  background-color: var(--bg-app);
+  background-image:
+    radial-gradient(ellipse 65% 50% at 12% 0%, rgba(56, 189, 248, 0.12), transparent),
+    radial-gradient(ellipse 60% 50% at 88% 8%, rgba(139, 92, 246, 0.14), transparent),
+    radial-gradient(ellipse 50% 45% at 50% 100%, rgba(14, 165, 233, 0.08), transparent);
+}
+
+.glass-card {
+  background: var(--bg-surface);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid var(--border-glass);
+  box-shadow: 0 8px 30px rgba(3, 7, 24, 0.18);
+}
+
+.dark .glass-card {
+  box-shadow:
+    0 10px 36px -6px rgba(2, 6, 23, 0.72),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+.glass-card-elevated {
+  background: var(--bg-surface-elevated);
+  backdrop-filter: blur(24px) saturate(165%);
+  -webkit-backdrop-filter: blur(24px) saturate(165%);
+  border: 1px solid var(--border-glass);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom sleek Windows 11 scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.28);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(56, 189, 248, 0.55);
+}
+

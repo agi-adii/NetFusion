@@ -1,0 +1,23 @@
+# Multi-stage production build for NetFusion Multipath Bonding Server
+FROM rust:1.83-bookworm AS builder
+
+WORKDIR /build
+COPY Cargo.toml ./
+COPY crates/netfusion-protocol ./crates/netfusion-protocol
+COPY crates/bonding-server ./crates/bonding-server
+
+# Build only the standalone bonding server crate (excludes Windows desktop Tauri crate)
+RUN cargo build --release --manifest-path crates/bonding-server/Cargo.toml --target-dir /build/target
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -r -u 10001 -s /usr/sbin/nologin netfusion
+COPY --from=builder /build/target/release/netfusion-bonding-server /usr/local/bin/netfusion-bonding-server
+
+USER netfusion
+EXPOSE 9443/tcp
+
+ENV NETFUSION_LISTEN="0.0.0.0:9443"
+ENTRYPOINT ["/usr/local/bin/netfusion-bonding-server"]
+

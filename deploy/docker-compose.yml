@@ -1,0 +1,18 @@
+services:
+  netfusion-bonding-server:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.bonding-server
+    container_name: netfusion-bonding-server
+    restart: unless-stopped
+    ports:
+      - "9443:9443/tcp"
+    environment:
+      NETFUSION_LISTEN: "0.0.0.0:9443"
+      # IMPORTANT: Replace with a strong 32+ character random secret before deploying!
+      NETFUSION_PSK: "${NETFUSION_PSK:-change-this-to-a-strong-random-32-char-secret}"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+

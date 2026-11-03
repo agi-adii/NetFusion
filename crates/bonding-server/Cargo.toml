@@ -1,0 +1,18 @@
+[package]
+name = "bonding-server"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "netfusion-bonding-server"
+path = "src/main.rs"
+
+[dependencies]
+netfusion-protocol = { path = "../netfusion-protocol" }
+tokio = { version = "1.42", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rand = "0.8"
+

@@ -1,0 +1,20 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/netfusion-protocol",
+    "crates/bonding-server",
+    "src-tauri",
+]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+authors = ["NetFusion Engineering"]
+license = "MIT"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = false
+
