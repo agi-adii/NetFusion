@@ -40,3 +40,4 @@ jobs:
 
       - name: Build Tauri Windows Desktop Application
         run: npx tauri build --no-bundle
+
