@@ -1,6 +1,20 @@
 # NetFusion — Internet Bonding & Advanced Download Manager
 
+[![Latest Release](https://img.shields.io/github/v/release/agi-adii/NetFusion?style=for-the-badge&label=Download%20Latest%20Release&color=38bdf8)](https://github.com/agi-adii/NetFusion/releases/latest)
+[![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(64--bit)-6366f1?style=for-the-badge&logo=windows)](https://github.com/agi-adii/NetFusion/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-10b981?style=for-the-badge)](LICENSE)
+
 **NetFusion** is a Windows 10 & Windows 11 desktop application built with **Tauri 2**, **Rust (Tokio)**, **React**, **TypeScript**, **Tailwind CSS**, **Framer Motion**, **Recharts**, and **SQLite** that combines multiple available internet connections (**Wi-Fi**, **Ethernet**, **Android/iPhone USB Tethering**, and secondary USB adapters) to maximize aggregate download bandwidth and connection resilience.
+
+---
+
+## Direct Download (For End Users — No Setup Required)
+
+Anyone on **Windows 10 or Windows 11 (64-bit)** can download and run **NetFusion** immediately from the [**GitHub Releases page**](https://github.com/agi-adii/NetFusion/releases/latest):
+
+1. **[Download `NetFusion-Setup-x64.exe` (1-Click Standalone Installer)](https://github.com/agi-adii/NetFusion/releases/download/v1.0.0/NetFusion-Setup-x64.exe)** — Single `.exe` file that automatically installs NetFusion, adds Desktop & Start Menu shortcuts, and launches the app immediately.
+2. **[Download `NetFusion-v1.0.0-Windows-x64-Portable.zip` (Portable Archive)](https://github.com/agi-adii/NetFusion/releases/download/v1.0.0/NetFusion-v1.0.0-Windows-x64-Portable.zip)** — Extract anywhere and double-click **`NetFusion.exe`**.
+3. **[Download `netfusion-bonding-server.exe`](https://github.com/agi-adii/NetFusion/releases/download/v1.0.0/netfusion-bonding-server.exe)** — *(Optional)* Standalone encrypted multipath bonding server binary.
 
 ---
 
