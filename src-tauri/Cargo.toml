@@ -11,7 +11,7 @@ name = "netfusion_lib"
 crate-type = ["rlib"]
 
 [features]
-default = []
+default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 
 [build-dependencies]
@@ -19,7 +19,7 @@ tauri-build = { version = "2.0", features = [] }
 
 [dependencies]
 netfusion-protocol = { path = "../crates/netfusion-protocol" }
-tauri = { version = "2.2", features = ["tray-icon", "image-png"] }
+tauri = { version = "2.2", features = ["tray-icon", "image-png", "custom-protocol"] }
 tauri-plugin-autostart = "2.2"
 tauri-plugin-dialog = "2.2"
 tauri-plugin-notification = "2.2"

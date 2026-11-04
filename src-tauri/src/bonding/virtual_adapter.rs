@@ -50,7 +50,7 @@ pub fn enable_windows_system_proxy(port: u16) -> Result<(), String> {
         "/t",
         "REG_SZ",
         "/d",
-        "localhost;127.*;10.*;192.168.*;<local>",
+        "localhost;*.localhost;tauri.localhost;127.*;10.*;192.168.*;<local>",
         "/f",
     ]);
 
