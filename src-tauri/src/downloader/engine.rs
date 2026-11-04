@@ -303,6 +303,7 @@ impl DownloadEngine {
             max_retries: settings.max_retries,
             created_at_ms: now,
             completed_at_ms: None,
+            elapsed_ms: 0,
             used_bonding_tunnel: false,
             // Temporarily stash desired seg_count as a single marker if >0? Even simpler: probe uses settings or default_segments, or let's store desired segments cleanly
             segments: Vec::with_capacity(seg_count),
@@ -713,7 +714,7 @@ impl DownloadEngine {
 
         match result {
             Ok(()) => {
-                let file_name = {
+                let completed_info = {
                     let mut items = self.items.lock().await;
                     if let Some(item) = items.iter_mut().find(|d| d.id == download_id) {
                         item.status = DownloadStatus::Completed;
@@ -722,17 +723,20 @@ impl DownloadEngine {
                         item.completed_at_ms = Some(now_ms());
                         item.active_paths.clear();
                         self.db.save_download(item);
-                        Some(item.file_name.clone())
+                        Some((item.file_name.clone(), item.elapsed_ms))
                     } else {
                         None
                     }
                 };
-                if let Some(name) = file_name {
-                    self.logger
-                        .success("DOWNLOAD", format!("Completed download '{name}'"));
+                if let Some((name, elapsed_ms)) = completed_info {
+                    let dur_label = format_duration_ms(elapsed_ms);
+                    self.logger.success(
+                        "DOWNLOAD",
+                        format!("Completed download '{name}' in {dur_label}"),
+                    );
                     self.send_completion_notification(
                         "NetFusion — Download Complete",
-                        &format!("{name} finished downloading successfully."),
+                        &format!("{name} finished downloading in {dur_label}."),
                     );
                 }
             }
@@ -812,7 +816,13 @@ impl DownloadEngine {
         }
 
         // Probe metadata if we don't yet have persisted segments
-        let (mut total_bytes, mut supports_range, mut existing_segments, existing_downloaded) = {
+        let (
+            mut total_bytes,
+            mut supports_range,
+            mut existing_segments,
+            existing_downloaded,
+            mut base_elapsed_ms,
+        ) = {
             let items = self.items.lock().await;
             let item = items
                 .iter()
@@ -823,6 +833,7 @@ impl DownloadEngine {
                 item.supports_range,
                 item.segments.clone(),
                 item.downloaded_bytes,
+                item.elapsed_ms,
             )
         };
 
@@ -842,6 +853,7 @@ impl DownloadEngine {
                 seg.downloaded_bytes = 0;
                 seg.status = "Pending".to_string();
             }
+            base_elapsed_ms = 0;
         }
 
         let has_saved_progress = existing_segments.iter().any(|s| s.downloaded_bytes > 0)
@@ -1083,7 +1095,8 @@ impl DownloadEngine {
                             // Abort remaining workers on unrecoverable error
                             workers.abort_all();
                             stop_rep_clone.store(true, Ordering::Relaxed);
-                            self.sync_segments_to_item(&dl_id_rep, &segs_rep, 0, 0, None, Vec::new(), true).await;
+                            let cur_elapsed = (base_elapsed_ms + started_at.elapsed().as_millis() as u64).max(1);
+                            self.sync_segments_to_item(&dl_id_rep, &segs_rep, 0, 0, None, cur_elapsed, Vec::new(), true).await;
                             return Err(worker_err);
                         }
                     }
@@ -1100,9 +1113,9 @@ impl DownloadEngine {
                     prev_bytes = current_bytes;
 
                     let inst_speed_bps = ((delta as f64 * 8.0) / dt) as u64;
-                    let total_elapsed = started_at.elapsed().as_secs_f64().max(0.2);
-                    let session_bytes = current_bytes.saturating_sub(initial_done);
-                    let avg_speed_bps = ((session_bytes as f64 * 8.0) / total_elapsed) as u64;
+                    let current_elapsed_ms = (base_elapsed_ms + started_at.elapsed().as_millis() as u64).max(1);
+                    let total_elapsed_secs = (current_elapsed_ms as f64 / 1000.0).max(0.2);
+                    let avg_speed_bps = ((current_bytes as f64 * 8.0) / total_elapsed_secs) as u64;
 
                     let eta = total_bytes.and_then(|tot| {
                         if inst_speed_bps > 0 && tot > current_bytes {
@@ -1140,6 +1153,7 @@ impl DownloadEngine {
                         inst_speed_bps,
                         avg_speed_bps,
                         eta,
+                        current_elapsed_ms,
                         active_paths,
                         persist_now,
                     ).await;
@@ -1163,22 +1177,24 @@ impl DownloadEngine {
                     s.speed_bps.store(0, Ordering::Relaxed);
                 }
             }
-            self.sync_segments_to_item(&dl_id_rep, &segs_rep, 0, 0, None, Vec::new(), true)
+            let paused_elapsed_ms = (base_elapsed_ms + started_at.elapsed().as_millis() as u64).max(1);
+            self.sync_segments_to_item(&dl_id_rep, &segs_rep, 0, 0, None, paused_elapsed_ms, Vec::new(), true)
                 .await;
             return Err("Paused".into());
         }
 
         // Finalize segment state
-        let total_elapsed = started_at.elapsed().as_secs_f64().max(0.2);
+        let final_elapsed_ms = (base_elapsed_ms + started_at.elapsed().as_millis() as u64).max(1);
+        let total_elapsed_secs = (final_elapsed_ms as f64 / 1000.0).max(0.2);
         let final_bytes = sum_downloaded_bytes(&segs_rep).await;
-        let final_avg_bps =
-            (((final_bytes.saturating_sub(initial_done)) as f64 * 8.0) / total_elapsed) as u64;
+        let final_avg_bps = ((final_bytes as f64 * 8.0) / total_elapsed_secs) as u64;
         self.sync_segments_to_item(
             &dl_id_rep,
             &segs_rep,
             0,
             final_avg_bps,
             Some(0),
+            final_elapsed_ms,
             Vec::new(),
             true,
         )
@@ -1244,6 +1260,7 @@ impl DownloadEngine {
         speed_bps: u64,
         avg_speed_bps: u64,
         eta_seconds: Option<u64>,
+        elapsed_ms: u64,
         active_paths: Vec<ActivePathContribution>,
         persist_to_sqlite: bool,
     ) {
@@ -1278,6 +1295,7 @@ impl DownloadEngine {
                 item.avg_speed_bps = avg_speed_bps;
             }
             item.eta_seconds = eta_seconds;
+            item.elapsed_ms = elapsed_ms;
             item.segments = out_segs;
             item.active_paths = active_paths;
             if persist_to_sqlite {
@@ -1719,4 +1737,25 @@ async fn compute_file_checksum(path: &Path, algorithm: &str) -> Result<String, S
         Ok(hex::encode(hasher.finalize()))
     }
 }
+
+fn format_duration_ms(ms: u64) -> String {
+    if ms < 1000 {
+        return format!("{:.2}s", (ms as f64 / 1000.0).max(0.01));
+    }
+    let total_secs = ms as f64 / 1000.0;
+    if total_secs < 60.0 {
+        return format!("{total_secs:.1}s");
+    }
+    let total_whole_secs = ms / 1000;
+    if total_whole_secs < 3600 {
+        let mins = total_whole_secs / 60;
+        let rem_secs = (ms % 60_000) as f64 / 1000.0;
+        return format!("{mins}m {rem_secs:.1}s");
+    }
+    let hours = total_whole_secs / 3600;
+    let mins = (total_whole_secs % 3600) / 60;
+    let secs = total_whole_secs % 60;
+    format!("{hours}h {mins}m {secs}s")
+}
+
 

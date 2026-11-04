@@ -4,7 +4,11 @@ use netfusion_lib::{
     downloader::engine::DownloadEngine,
     logger::AppLogger,
     models::{AddDownloadRequest, DownloadPriority, DownloadStatus},
-    network::{monitor::NetworkMonitor, win_api::enumerate_windows_adapters},
+    network::{
+        monitor::NetworkMonitor,
+        wifi::{parse_netsh_wlan_interfaces, parse_netsh_wlan_networks},
+        win_api::enumerate_windows_adapters,
+    },
 };
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
@@ -170,6 +174,10 @@ async fn test_segmented_download_pause_resume_and_sha256_verification() {
         completed.error_message
     );
     assert_eq!(completed.checksum_verified, Some(true));
+    assert!(
+        completed.elapsed_ms > 0,
+        "Completed download must record positive elapsed_ms"
+    );
     assert_eq!(
         completed.computed_checksum.as_deref(),
         Some(expected_sha256.as_str())
@@ -181,4 +189,94 @@ async fn test_segmented_download_pause_resume_and_sha256_verification() {
 
     let _ = std::fs::remove_dir_all(&temp_dir);
 }
+
+#[test]
+fn test_multi_wifi_interface_and_network_scan_parser() {
+    let sample_interfaces = r#"
+There are 2 interfaces on the system:
+
+    Name                   : Wi-Fi
+    Description            : Intel(R) Wi-Fi 6E AX211 160MHz
+    GUID                   : 11111111-2222-3333-4444-555555555555
+    Physical address       : aa:bb:cc:dd:ee:01
+    State                  : connected
+    SSID                   : FiberRouter_5G
+    BSSID                  : 10:20:30:40:50:60
+    Network type           : Infrastructure
+    Radio type             : 802.11ax
+    Authentication         : WPA2-Personal
+    Cipher                 : CCMP
+    Connection mode        : Auto Connect
+    Channel                : 36
+    Receive rate (Mbps)    : 1201
+    Transmit rate (Mbps)   : 1201
+    Signal                 : 94%
+    Profile                : FiberRouter_5G
+
+    Name                   : Wi-Fi 2
+    Description            : TP-Link Wireless USB Adapter
+    GUID                   : 66666666-7777-8888-9999-000000000000
+    Physical address       : aa:bb:cc:dd:ee:02
+    State                  : connected
+    SSID                   : MobileHotspot_2
+    BSSID                  : 70:80:90:a0:b0:c0
+    Network type           : Infrastructure
+    Radio type             : 802.11ac
+    Authentication         : WPA2-Personal
+    Cipher                 : CCMP
+    Connection mode        : Auto Connect
+    Channel                : 149
+    Receive rate (Mbps)    : 866.7
+    Transmit rate (Mbps)   : 866.7
+    Signal                 : 82%
+    Profile                : MobileHotspot_2
+"#;
+
+    let parsed = parse_netsh_wlan_interfaces(sample_interfaces);
+    assert_eq!(parsed.len(), 2);
+    let w1 = parsed.get("wi-fi").unwrap();
+    assert!(w1.connected);
+    assert_eq!(w1.ssid.as_deref(), Some("FiberRouter_5G"));
+    assert_eq!(w1.signal_pct, Some(94));
+    assert_eq!(w1.radio_type.as_deref(), Some("802.11ax"));
+
+    let w2 = parsed.get("wi-fi 2").unwrap();
+    assert!(w2.connected);
+    assert_eq!(w2.ssid.as_deref(), Some("MobileHotspot_2"));
+    assert_eq!(w2.signal_pct, Some(82));
+    assert_eq!(w2.radio_type.as_deref(), Some("802.11ac"));
+
+    let sample_scan = r#"
+Interface name : Wi-Fi 2
+There are 2 networks currently visible.
+
+SSID 1 : MobileHotspot_2
+    Network type            : Infrastructure
+    Authentication          : WPA2-Personal
+    Encryption              : CCMP
+    BSSID 1                 : 70:80:90:a0:b0:c0
+         Signal             : 82%
+         Radio type         : 802.11ac
+         Channel            : 149
+
+SSID 2 : BackupOfficeWiFi
+    Network type            : Infrastructure
+    Authentication          : WPA2-Personal
+    Encryption              : CCMP
+    BSSID 1                 : 12:34:56:78:9a:bc
+         Signal             : 65%
+         Radio type         : 802.11n
+         Channel            : 6
+"#;
+    let mut saved = std::collections::HashSet::new();
+    saved.insert("MobileHotspot_2".to_string());
+    let networks = parse_netsh_wlan_networks(sample_scan, &saved, Some("MobileHotspot_2"));
+    assert_eq!(networks.len(), 2);
+    assert!(networks[0].connected);
+    assert!(networks[0].has_saved_profile);
+    assert_eq!(networks[0].signal_pct, 82);
+    assert_eq!(networks[1].ssid, "BackupOfficeWiFi");
+    assert_eq!(networks[1].signal_pct, 65);
+}
+
 

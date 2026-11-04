@@ -2,6 +2,10 @@ use crate::AppState;
 use crate::models::{
     AddDownloadRequest, AppSettings, ConnectionHistoryEvent, DownloadItem, DownloadPriority,
     LogEntry, NetworkTelemetrySnapshot, SpeedTestRecord, UpdateSettingsPayload, UrlProbeResult,
+    WifiNetworkScanItem,
+};
+use crate::network::wifi::{
+    connect_wifi_adapter, disconnect_wifi_adapter, scan_wifi_networks_for_adapter,
 };
 use netfusion_protocol::scheduler::BondingPolicy;
 use std::path::Path;
@@ -384,4 +388,121 @@ pub async fn clear_logs(state: State<'_, AppState>) -> Result<(), String> {
     state.db.clear_logs();
     Ok(())
 }
+
+#[tauri::command]
+pub async fn set_bonding_active(
+    state: State<'_, AppState>,
+    app: AppHandle,
+    active: bool,
+) -> Result<(), String> {
+    state.bonding_client.set_bonding_active(active).await;
+    let _ = state.monitor.sample_once(&Some(app)).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_auto_bonding(
+    state: State<'_, AppState>,
+    app: AppHandle,
+    enabled: bool,
+) -> Result<(), String> {
+    state.bonding_client.set_auto_bonding(enabled);
+    let _ = state.monitor.sample_once(&Some(app)).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_adaptive_load_balancing(
+    state: State<'_, AppState>,
+    app: AppHandle,
+    enabled: bool,
+) -> Result<(), String> {
+    state.bonding_client.set_adaptive_load_balancing(enabled);
+    let mut settings = state.db.get_settings();
+    settings.adaptive_concurrency = enabled;
+    let _ = state.db.save_settings(&UpdateSettingsPayload {
+        default_download_dir: settings.default_download_dir,
+        max_concurrent_downloads: settings.max_concurrent_downloads,
+        default_segments_per_download: settings.default_segments_per_download,
+        adaptive_concurrency: enabled,
+        global_speed_limit_bps: settings.global_speed_limit_bps,
+        auto_retry_downloads: settings.auto_retry_downloads,
+        max_retries: settings.max_retries,
+        bonding_mode: settings.bonding_mode,
+        bonding_tunnel_enabled: settings.bonding_tunnel_enabled,
+        bonding_server_endpoint: settings.bonding_server_endpoint,
+        new_bonding_auth_token: None,
+        enable_local_socks_proxy: settings.enable_local_socks_proxy,
+        local_socks_port: settings.local_socks_port,
+        launch_at_startup: settings.launch_at_startup,
+        minimize_to_tray: settings.minimize_to_tray,
+        run_in_background: settings.run_in_background,
+        notify_on_complete: settings.notify_on_complete,
+        theme: settings.theme,
+        speedtest_endpoint: settings.speedtest_endpoint,
+    });
+    let _ = state.monitor.sample_once(&Some(app)).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_system_proxy_routing(
+    state: State<'_, AppState>,
+    app: AppHandle,
+    enabled: bool,
+) -> Result<(), String> {
+    state.bonding_client.set_system_proxy_routing(enabled).await?;
+    let _ = state.monitor.sample_once(&Some(app)).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn scan_wifi_networks(
+    interface_name: String,
+) -> Result<Vec<WifiNetworkScanItem>, String> {
+    tokio::task::spawn_blocking(move || scan_wifi_networks_for_adapter(&interface_name))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn connect_wifi_network(
+    state: State<'_, AppState>,
+    app: AppHandle,
+    interface_name: String,
+    ssid: String,
+    password: Option<String>,
+) -> Result<String, String> {
+    let if_clone = interface_name.clone();
+    let ssid_clone = ssid.clone();
+    let msg = tokio::task::spawn_blocking(move || {
+        connect_wifi_adapter(&if_clone, &ssid_clone, password.as_deref())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    state.logger.success("WIFI", msg.clone());
+    tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+    let _ = state.monitor.sample_once(&Some(app)).await;
+    Ok(msg)
+}
+
+#[tauri::command]
+pub async fn disconnect_wifi_network(
+    state: State<'_, AppState>,
+    app: AppHandle,
+    interface_name: String,
+) -> Result<(), String> {
+    let if_clone = interface_name.clone();
+    tokio::task::spawn_blocking(move || disconnect_wifi_adapter(&if_clone))
+        .await
+        .map_err(|e| e.to_string())??;
+    state.logger.info(
+        "WIFI",
+        format!("Disconnected Wi-Fi adapter '{interface_name}'"),
+    );
+    let _ = state.monitor.sample_once(&Some(app)).await;
+    Ok(())
+}
+
 

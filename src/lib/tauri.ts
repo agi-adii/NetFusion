@@ -13,6 +13,7 @@ import type {
   SpeedTestRecord,
   UpdateSettingsPayload,
   UrlProbeResult,
+  WifiNetworkScanItem,
 } from "./types";
 
 export const isTauriRuntime = (): boolean =>
@@ -30,6 +31,18 @@ export const api = {
   connectBondingServer: (endpoint: string, authToken?: string | null) =>
     invoke<void>("connect_bonding_server", { endpoint, authToken }),
   disconnectBondingServer: () => invoke<void>("disconnect_bonding_server"),
+  setBondingActive: (active: boolean) => invoke<void>("set_bonding_active", { active }),
+  setAutoBonding: (enabled: boolean) => invoke<void>("set_auto_bonding", { enabled }),
+  setAdaptiveLoadBalancing: (enabled: boolean) =>
+    invoke<void>("set_adaptive_load_balancing", { enabled }),
+  setSystemProxyRouting: (enabled: boolean) =>
+    invoke<void>("set_system_proxy_routing", { enabled }),
+  scanWifiNetworks: (interfaceName: string) =>
+    invoke<WifiNetworkScanItem[]>("scan_wifi_networks", { interfaceName }),
+  connectWifiNetwork: (interfaceName: string, ssid: string, password?: string | null) =>
+    invoke<string>("connect_wifi_network", { interfaceName, ssid, password }),
+  disconnectWifiNetwork: (interfaceName: string) =>
+    invoke<void>("disconnect_wifi_network", { interfaceName }),
   getConnectionHistory: () => invoke<ConnectionHistoryEvent[]>("get_connection_history"),
 
   // Downloads

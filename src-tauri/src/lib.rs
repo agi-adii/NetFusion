@@ -115,6 +115,7 @@ pub fn run() {
                         });
                     }
                     "quit" => {
+                        let _ = crate::bonding::virtual_adapter::disable_windows_system_proxy();
                         app.exit(0);
                     }
                     _ => {}
@@ -174,6 +175,8 @@ pub fn run() {
                 if settings.minimize_to_tray && settings.run_in_background {
                     api.prevent_close();
                     let _ = window.hide();
+                } else {
+                    let _ = crate::bonding::virtual_adapter::disable_windows_system_proxy();
                 }
             }
         })
@@ -207,6 +210,13 @@ pub fn run() {
             commands::update_settings,
             commands::get_logs,
             commands::clear_logs,
+            commands::set_bonding_active,
+            commands::set_auto_bonding,
+            commands::set_adaptive_load_balancing,
+            commands::set_system_proxy_routing,
+            commands::scan_wifi_networks,
+            commands::connect_wifi_network,
+            commands::disconnect_wifi_network,
         ])
         .run(tauri::generate_context!())
         .expect("error while running NetFusion application");

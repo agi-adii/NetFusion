@@ -24,6 +24,7 @@ pub struct NetworkInterfaceInfo {
     pub id: String,
     pub if_index: u32,
     pub name: String,
+    pub slot_label: String,
     pub description: String,
     pub kind: InterfaceKind,
     pub ipv4: Option<String>,
@@ -36,6 +37,8 @@ pub struct NetworkInterfaceInfo {
     pub link_speed_bps: u64,
     pub download_bps: u64,
     pub upload_bps: u64,
+    pub peak_download_bps: u64,
+    pub peak_upload_bps: u64,
     pub latency_ms: Option<f64>,
     pub jitter_ms: Option<f64>,
     pub packet_loss_pct: f64,
@@ -48,6 +51,23 @@ pub struct NetworkInterfaceInfo {
     pub custom_weight: u32,
     pub subflow_connected: bool,
     pub local_proxy_port: Option<u16>,
+    pub wifi_ssid: Option<String>,
+    pub wifi_bssid: Option<String>,
+    pub wifi_signal_pct: Option<u8>,
+    pub wifi_radio_type: Option<String>,
+    pub wifi_profile: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WifiNetworkScanItem {
+    pub ssid: String,
+    pub bssid: String,
+    pub signal_pct: u8,
+    pub radio_type: String,
+    pub authentication: String,
+    pub channel: String,
+    pub connected: bool,
+    pub has_saved_profile: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -62,6 +82,12 @@ pub enum TunnelStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BondingStateSnapshot {
+    pub bonding_active: bool,
+    pub auto_bonding: bool,
+    pub adaptive_load_balancing: bool,
+    pub virtual_gateway_active: bool,
+    pub system_proxy_routed: bool,
+    pub virtual_adapter_detected: Option<String>,
     pub mode: BondingPolicy,
     pub tunnel_enabled: bool,
     pub tunnel_status: TunnelStatus,
@@ -83,6 +109,7 @@ pub struct NetworkTelemetrySnapshot {
     pub total_link_capacity_bps: u64,
     pub active_connections_count: usize,
     pub average_latency_ms: Option<f64>,
+    pub average_packet_loss_pct: f64,
     pub overall_stability_pct: f64,
     pub downloaded_today_bytes: u64,
     pub uploaded_today_bytes: u64,
@@ -223,6 +250,7 @@ pub struct DownloadItem {
     pub max_retries: u32,
     pub created_at_ms: u64,
     pub completed_at_ms: Option<u64>,
+    pub elapsed_ms: u64,
     pub used_bonding_tunnel: bool,
     pub segments: Vec<DownloadSegmentInfo>,
     pub active_paths: Vec<ActivePathContribution>,

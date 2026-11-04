@@ -23,16 +23,22 @@ import {
   FolderOpen,
   ExternalLink,
   ChevronRight,
+  Clock,
+  Power,
 } from "lucide-react";
 import clsx from "clsx";
 import {
+  bondingModeDisplayName,
   formatBitsPerSec,
   formatBytes,
   formatByteSpeed,
+  formatDurationMs,
   formatEta,
+  getDownloadDurationMs,
 } from "../lib/format";
 import type {
   BandwidthSample,
+  BondingMode,
   DownloadItem,
   NetworkTelemetrySnapshot,
 } from "../lib/types";
@@ -50,6 +56,10 @@ interface DashboardPageProps {
   history: BandwidthSample[];
   downloads: DownloadItem[];
   onToggleInterface: (id: string, enabled: boolean) => void;
+  onSetBondingActive: (active: boolean) => void;
+  onSetAutoBonding: (enabled: boolean) => void;
+  onSetAdaptiveLoadBalancing: (enabled: boolean) => void;
+  onSelectBondingMode: (mode: BondingMode) => void;
   onPauseDownload: (id: string) => void;
   onResumeDownload: (id: string) => void;
   onOpenFile: (id: string) => void;
@@ -62,6 +72,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   history,
   downloads,
   onToggleInterface,
+  onSetBondingActive,
+  onSetAutoBonding,
+  onSetAdaptiveLoadBalancing,
+  onSelectBondingMode,
   onPauseDownload,
   onResumeDownload,
   onOpenFile,
@@ -71,6 +85,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const dlSpeed = formatBitsPerSec(telemetry.total_download_bps);
   const ulSpeed = formatBitsPerSec(telemetry.total_upload_bps);
   const aggCap = formatBitsPerSec(telemetry.total_link_capacity_bps);
+  const bondingActive = telemetry.bonding.bonding_active !== false;
+  const autoBonding = telemetry.bonding.auto_bonding !== false;
+  const adaptiveLb = telemetry.bonding.adaptive_load_balancing !== false;
+  const avgLossPct = telemetry.average_packet_loss_pct ?? 0;
 
   const activeDownloads = downloads.filter((d) =>
     ["Downloading", "Probing", "Queued", "Verifying", "Merging"].includes(d.status)
@@ -87,7 +105,97 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   return (
     <div className="space-y-5 pb-6">
-      {/* Top KPI Cards Grid (All 8 Required Dashboard Metrics) */}
+      {/* Master Bonding Controls Bar */}
+      <div className="glass-card rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 border border-electric-400/25">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {bondingActive ? (
+            <button
+              onClick={() => onSetBondingActive(false)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-rose-500/15 text-rose-500 dark:text-rose-300 border border-rose-400/35 hover:bg-rose-500/25 transition-all"
+            >
+              <Power className="w-3.5 h-3.5" />
+              Stop Bonding
+            </button>
+          ) : (
+            <button
+              onClick={() => onSetBondingActive(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-electric-500 via-indigo-500 to-lavender-500 shadow-glow-blue hover:brightness-110 transition-all"
+            >
+              <Power className="w-3.5 h-3.5" />
+              Start Bonding
+            </button>
+          )}
+
+          <span
+            className={clsx(
+              "px-2.5 py-1 rounded-xl text-[11px] font-semibold border",
+              bondingActive
+                ? "bg-emerald-500/15 text-emerald-500 dark:text-emerald-300 border-emerald-400/30"
+                : "bg-slate-500/15 text-slate-400 border-slate-400/30"
+            )}
+          >
+            {bondingActive ? "Bonding Engine Active" : "Bonding Stopped"}
+          </span>
+
+          <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100/70 dark:bg-white/[0.04] border border-slate-200/70 dark:border-white/[0.08] cursor-pointer text-xs">
+            <input
+              type="checkbox"
+              checked={autoBonding}
+              onChange={(e) => onSetAutoBonding(e.target.checked)}
+              className="accent-electric-500 rounded"
+            />
+            <span className="font-medium text-slate-700 dark:text-slate-200">Auto Bonding</span>
+          </label>
+
+          <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100/70 dark:bg-white/[0.04] border border-slate-200/70 dark:border-white/[0.08] cursor-pointer text-xs">
+            <input
+              type="checkbox"
+              checked={adaptiveLb}
+              onChange={(e) => onSetAdaptiveLoadBalancing(e.target.checked)}
+              className="accent-lavender-500 rounded"
+            />
+            <span className="font-medium text-slate-700 dark:text-slate-200">
+              Adaptive Load Balancing
+            </span>
+          </label>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className="text-slate-500 dark:text-slate-400 font-medium">
+              Traffic Distribution:
+            </span>
+            <select
+              value={telemetry.bonding.mode}
+              onChange={(e) => onSelectBondingMode(e.target.value as BondingMode)}
+              className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-navy-900 border border-slate-300/70 dark:border-white/10 text-slate-800 dark:text-white"
+            >
+              <option value="Smart">Adaptive Bonding</option>
+              <option value="MaxSpeed">Speed Priority</option>
+              <option value="Balanced">Stability Priority</option>
+              <option value="Failover">Failover Mode</option>
+              <option value="Custom">Download Acceleration</option>
+            </select>
+          </div>
+
+          <button
+            onClick={() => onNavigate("bonding")}
+            className={clsx(
+              "px-3 py-1.5 rounded-xl text-[11px] font-semibold border transition-colors",
+              telemetry.bonding.tunnel_status === "Connected"
+                ? "bg-emerald-500/15 text-emerald-400 border-emerald-400/30"
+                : "bg-electric-500/10 text-electric-500 dark:text-electric-300 border-electric-400/25"
+            )}
+          >
+            Server:{" "}
+            {telemetry.bonding.tunnel_status === "Connected"
+              ? `Connected (${telemetry.bonding.active_subflows} Subflows)`
+              : "Direct Multi-Path Mode"}
+          </button>
+        </div>
+      </div>
+
+      {/* Top KPI Cards Grid (All Required Network Overview Metrics) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <KpiCard
           icon={<ArrowDownToLine className="w-4 h-4 text-electric-400" />}
@@ -107,21 +215,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         />
         <KpiCard
           icon={<Layers className="w-4 h-4 text-emerald-400" />}
-          label="Aggregated Link Capacity"
+          label="Combined Bandwidth"
           value={aggCap.value}
           unit={aggCap.unit}
-          subtext={`Mode: ${telemetry.bonding.mode}`}
+          subtext={`Mode: ${bondingModeDisplayName(telemetry.bonding.mode)}`}
           accent="from-emerald-500/15 to-teal-500/10 border-emerald-400/25"
         />
         <KpiCard
           icon={<Network className="w-4 h-4 text-sky-400" />}
-          label="Active Network Connections"
+          label="Active Connections"
           value={String(telemetry.active_connections_count)}
           unit={`/ ${telemetry.interfaces.length} NICs`}
           subtext={
             telemetry.bonding.tunnel_status === "Connected"
               ? `${telemetry.bonding.active_subflows} Tunnel Subflows`
-              : "Direct Multi-Path Ready"
+              : "Multi-Path Bonding Ready"
           }
           accent="from-sky-500/15 to-blue-500/10 border-sky-400/25"
         />
@@ -143,19 +251,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         />
         <KpiCard
           icon={<Activity className="w-4 h-4 text-amber-400" />}
-          label="Network Latency"
+          label="Latency & Packet Loss"
           value={
             telemetry.average_latency_ms !== null
               ? `${Math.round(telemetry.average_latency_ms)}`
               : "—"
           }
           unit={telemetry.average_latency_ms !== null ? "ms" : ""}
-          subtext="Weighted multi-link RTT"
+          subtext={`Packet Loss: ${avgLossPct.toFixed(1)}%`}
           accent="from-amber-500/15 to-orange-500/10 border-amber-400/25"
         />
         <KpiCard
           icon={<ShieldCheck className="w-4 h-4 text-emerald-400" />}
-          label="Connection Stability"
+          label="Network Health"
           value={`${Math.round(telemetry.overall_stability_pct)}`}
           unit="%"
           subtext={
@@ -214,7 +322,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <div className="p-2.5 rounded-xl bg-slate-100/70 dark:bg-white/[0.03]">
               <div className="text-[11px] text-slate-500 dark:text-slate-400">Bonding Engine</div>
               <div className="text-sm font-bold text-lavender-500 dark:text-lavender-300 mt-0.5 truncate">
-                {telemetry.bonding.mode}
+                {bondingModeDisplayName(telemetry.bonding.mode)}
               </div>
             </div>
           </div>
@@ -323,7 +431,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             </button>
           </div>
 
-          <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
+            <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
             {telemetry.interfaces.length === 0 ? (
               <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
                 Detecting Windows network adapters...
@@ -332,6 +440,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               telemetry.interfaces.map((nic) => {
                 const colors = interfaceKindColors(nic.kind);
                 const dl = formatBitsPerSec(nic.download_bps);
+                const peakDl = formatBitsPerSec(nic.peak_download_bps || 0);
                 return (
                   <div
                     key={nic.id}
@@ -348,14 +457,22 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                           <InterfaceIcon kind={nic.kind} className="w-4 h-4" />
                         </span>
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {nic.slot_label && (
+                              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-electric-500/15 text-electric-500 dark:text-electric-300 border border-electric-400/25">
+                                {nic.slot_label}
+                              </span>
+                            )}
                             <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                               {nic.name}
                             </span>
                             <StatusPill status={nic.status} />
                           </div>
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                            {interfaceKindLabel(nic.kind)} · {nic.ipv4 || "No IPv4"} ·{" "}
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                            {interfaceKindLabel(nic.kind)}
+                            {nic.wifi_ssid ? ` · SSID: ${nic.wifi_ssid}` : ""}
+                            {nic.wifi_signal_pct != null ? ` (${nic.wifi_signal_pct}%)` : ""} ·{" "}
+                            {nic.ipv4 || "No IPv4"} · Ping:{" "}
                             {nic.latency_ms !== null ? `${Math.round(nic.latency_ms)} ms` : "—"}
                           </div>
                         </div>
@@ -372,12 +489,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                       </label>
                     </div>
 
-                    <div className="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-white/[0.06] flex items-center justify-between text-[11px] tabular-nums">
+                    <div className="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-white/[0.06] flex flex-wrap items-center justify-between gap-2 text-[11px] tabular-nums">
                       <span className="text-electric-600 dark:text-electric-400 font-semibold">
                         ↓ {dl.full}
                       </span>
                       <span className="text-lavender-600 dark:text-lavender-300">
                         ↑ {formatBitsPerSec(nic.upload_bps).full}
+                      </span>
+                      <span className="text-emerald-600 dark:text-emerald-400">
+                        Max: {peakDl.full}
                       </span>
                       <span className="text-slate-500 dark:text-slate-400">
                         Share: <strong>{Math.round(nic.allocated_weight_pct)}%</strong>
@@ -441,6 +561,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                               <span className="text-electric-500 dark:text-electric-400 font-semibold">
                                 {formatByteSpeed(item.speed_bps)}
                               </span>{" "}
+                              · Time: <strong>{formatDurationMs(getDownloadDurationMs(item))}</strong>{" "}
                               · ETA {formatEta(item.eta_seconds)}
                             </div>
                           </div>
@@ -511,17 +632,29 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                       <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
                         {d.file_name}
                       </div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                        {formatBytes(d.total_bytes || d.downloaded_bytes)} ·{" "}
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums flex flex-wrap items-center gap-1.5">
+                        <span>{formatBytes(d.total_bytes || d.downloaded_bytes)}</span>
+                        <span>·</span>
                         <span
                           className={
                             d.status === "Completed"
-                              ? "text-emerald-500 dark:text-emerald-400"
-                              : "text-rose-500 dark:text-rose-400"
+                              ? "text-emerald-500 dark:text-emerald-400 font-semibold"
+                              : "text-rose-500 dark:text-rose-400 font-semibold"
                           }
                         >
                           {d.status}
                         </span>
+                        <span>·</span>
+                        <span className="inline-flex items-center gap-1 text-electric-600 dark:text-electric-300 font-semibold">
+                          <Clock className="w-3 h-3" />
+                          Total Time: {formatDurationMs(getDownloadDurationMs(d))}
+                        </span>
+                        {d.avg_speed_bps > 0 && (
+                          <>
+                            <span>·</span>
+                            <span>Avg {formatByteSpeed(d.avg_speed_bps)}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                     {d.status === "Completed" && (

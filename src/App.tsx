@@ -261,6 +261,10 @@ export const App: React.FC = () => {
               history={bandwidthHistory}
               downloads={downloads}
               onToggleInterface={(id, en) => api.setInterfaceEnabled(id, en)}
+              onSetBondingActive={(active) => api.setBondingActive(active)}
+              onSetAutoBonding={(en) => api.setAutoBonding(en)}
+              onSetAdaptiveLoadBalancing={(en) => api.setAdaptiveLoadBalancing(en)}
+              onSelectBondingMode={(m) => api.setBondingMode(m)}
               onPauseDownload={(id) => api.pauseDownload(id)}
               onResumeDownload={(id) => api.resumeDownload(id)}
               onOpenFile={(id) => api.openDownloadedFile(id)}
@@ -297,6 +301,10 @@ export const App: React.FC = () => {
               onToggleInterface={(id, en) => api.setInterfaceEnabled(id, en)}
               onChangeCustomWeight={(id, w) => api.setInterfaceCustomWeight(id, w)}
               onSetPrimaryFailover={(id) => api.setPrimaryFailoverInterface(id)}
+              onSetBondingActive={(active) => api.setBondingActive(active)}
+              onSetAutoBonding={(en) => api.setAutoBonding(en)}
+              onSetAdaptiveLoadBalancing={(en) => api.setAdaptiveLoadBalancing(en)}
+              onSetSystemProxyRouting={(en) => api.setSystemProxyRouting(en)}
               onConnectServer={(ep, tok) => api.connectBondingServer(ep, tok)}
               onDisconnectServer={() => api.disconnectBondingServer()}
             />

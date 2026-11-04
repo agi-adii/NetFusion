@@ -20,24 +20,31 @@ Anyone on **Windows 10 or Windows 11 (64-bit)** can download and run **NetFusion
 
 ## Key Capabilities
 
-### 1. Multi-Network Internet Bonding Engine
-- **Real Windows IP Helper Hardware Enumeration**: Detects Wi-Fi (`802.11`), Ethernet, Android RNDIS / CDC NCM USB Tethering, iPhone Apple Mobile Device USB Tethering, and WWAN adapters via Win32 `GetAdaptersAddresses` and `GetIfEntry2`.
+### 1. Multi-Network Internet Bonding Engine & Simultaneous Multi-Wi-Fi
+- **Simultaneous Multi-Wi-Fi (`Wi-Fi 1` + `Wi-Fi 2`), Ethernet & USB Tethering**:
+  - Detects all physical Wi-Fi adapters (`Wi-Fi 1`, `Wi-Fi 2`, etc.), Gigabit Ethernet, Android RNDIS / CDC NCM USB Tethering, iPhone Apple Mobile Device USB Tethering, and WWAN hotspots via Win32 `GetAdaptersAddresses`, `GetIfEntry2`, and Windows Wireless LAN (`netsh wlan`).
+  - Displays per-interface **SSID**, **BSSID**, **Signal Strength (`0–100%`)**, **Radio Band (`802.11ax/ac`)**, **Current Speed**, **Maximum Measured (Peak) Speed**, **Ping (`ms`)**, and **Packet Loss (`%`)**.
+  - Includes an integrated **Per-Adapter Wi-Fi Scanner & Connector** so you can connect `Wi-Fi 1` to Router A and `Wi-Fi 2` (USB Wi-Fi adapter) to Router B / Mobile Hotspot simultaneously, with **Automatic Wi-Fi Reconnection** on signal drop.
 - **Non-Intrusive Per-Socket Interface Pinning (`IP_UNICAST_IF`)**: Binds sockets to each adapter's IPv4 address **and** applies WinSock2 `setsockopt(IPPROTO_IP, IP_UNICAST_IF, htonl(if_index))`, bypassing Windows Weak Host default-route collapse without modifying system routing tables or requiring Administrator elevation.
-- **5 Bonding Modes**:
-  1. **Smart Bonding** — Dynamic EWMA throughput, RTT penalty, congestion cap, and loss damping.
-  2. **Maximum Speed** — Saturates all active connections with dynamic straggler protection.
-  3. **Balanced Mode** — Optimizes throughput, low latency, and link stability.
-  4. **Failover Mode** — Uses your designated primary link and switches instantaneously on disconnect or >25% packet loss.
-  5. **Custom Mode** — Manual per-interface traffic allocation sliders.
+- **Unified Virtual Bonding Gateway (`127.0.0.1:10808` Dual SOCKS5 + HTTP/HTTPS CONNECT)**:
+  - Provides a unified local virtual gateway interface (`127.0.0.1:10808`) that accepts both `SOCKS5` and `HTTP/HTTPS CONNECT` traffic, plus a 1-click **Windows System Application Traffic Routing** toggle (with automatic cleanup on stop/exit).
+- **Master Bonding Controls & 5 Traffic Distribution Modes**:
+  - Master **Start Bonding** / **Stop Bonding** controls, **Auto Bonding** toggle, and **Adaptive Load Balancing** toggle.
+  1. **Adaptive Bonding** (`Smart`) — Dynamic EWMA throughput, RTT latency penalty, congestion cap, and packet loss damping.
+  2. **Speed Priority** (`MaxSpeed`) — Aggressively saturates the fastest connections with dynamic straggler protection.
+  3. **Stability Priority** (`Balanced`) — Prioritizes connections with the lowest packet loss, low jitter, and highest link reliability.
+  4. **Failover Mode** (`Failover`) — Uses your designated primary link and switches instantaneously on disconnect or >25% packet loss.
+  5. **Download Acceleration** (`Custom`) — Splits supported downloads across multiple connections with customizable per-interface traffic weights.
 - **Encrypted Multipath Bonding Tunnel (`crates/netfusion-protocol` + `crates/bonding-server`)**:
   - Ephemeral **X25519 ECDH** + **HKDF-SHA256** + mutual **HMAC-SHA256** challenge (PSK never transmitted over wire; encrypted at rest in SQLite via ChaCha20-Poly1305) + **ChaCha20-Poly1305 AEAD** frame encryption.
   - Stripes logical TCP streams (`32 KiB` `StreamChunk`s) across all active physical NIC subflows and reassembles out-of-order chunks via a deterministic sliding-window `StreamReassembler` (`BTreeMap<u64, Vec<u8>>`).
   - Automatic subflow failover retransmission when any network disconnects mid-transfer.
-  - Clear UI distinction when the Bonding Server is offline (**Direct Multi-Path HTTP Range Mode**).
+  - Clear UI distinction when the Bonding Server is offline (**Direct Multi-Path Mode**).
 
 ### 2. Advanced Multi-Connection Download Manager
 - Parallel byte-range (`206 Partial Content`) segmented downloads distributed across bonded interfaces.
 - **Exact Byte-Offset Pause & Resume**: Stop/pause any download at any moment to immediately flush in-flight chunks to `<target>.nfdl` and checkpoint exact per-segment byte offsets to SQLite; resume seconds or days later from the exact byte where it stopped.
+- **Total Download Time & Live Task Duration Tracking**: Tracks cumulative active transfer duration (`elapsed_ms`) per download task across pause/resume sessions, displaying live task elapsed time while downloading and total time taken upon completion across the Downloads Queue, Dashboard Recent History, system logs, and Windows completion notifications.
 - **Dynamic Work-Stealing**: Fast interfaces split and steal remaining byte ranges (`>= 2 MiB`) from slower straggler segments so a slow network never stalls download completion.
 - In-place `.nfdl` disk allocation (zero double-copy merge overhead on 20 GB+ files) with automatic crash/restart recovery.
 - Priority queue (`Critical`, `High`, `Normal`, `Low`), download scheduling, global & per-task token-bucket speed limits, automatic retries across surviving links, and streaming `SHA-256` / `MD5` checksum verification.

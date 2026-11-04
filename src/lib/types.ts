@@ -13,6 +13,7 @@ export interface NetworkInterfaceInfo {
   id: string;
   if_index: number;
   name: string;
+  slot_label?: string;
   description: string;
   kind: InterfaceKind;
   ipv4: string | null;
@@ -25,6 +26,8 @@ export interface NetworkInterfaceInfo {
   link_speed_bps: number;
   download_bps: number;
   upload_bps: number;
+  peak_download_bps?: number;
+  peak_upload_bps?: number;
   latency_ms: number | null;
   jitter_ms: number | null;
   packet_loss_pct: number;
@@ -37,6 +40,22 @@ export interface NetworkInterfaceInfo {
   custom_weight: number;
   subflow_connected: boolean;
   local_proxy_port: number | null;
+  wifi_ssid?: string | null;
+  wifi_bssid?: string | null;
+  wifi_signal_pct?: number | null;
+  wifi_radio_type?: string | null;
+  wifi_profile?: string | null;
+}
+
+export interface WifiNetworkScanItem {
+  ssid: string;
+  bssid: string;
+  signal_pct: number;
+  radio_type: string;
+  authentication: string;
+  channel: string;
+  connected: boolean;
+  has_saved_profile: boolean;
 }
 
 export interface BandwidthSample {
@@ -60,6 +79,12 @@ export type TunnelStatus =
   | "ServerUnreachable";
 
 export interface BondingStateSnapshot {
+  bonding_active?: boolean;
+  auto_bonding?: boolean;
+  adaptive_load_balancing?: boolean;
+  virtual_gateway_active?: boolean;
+  system_proxy_routed?: boolean;
+  virtual_adapter_detected?: string | null;
   mode: BondingMode;
   tunnel_enabled: boolean;
   tunnel_status: TunnelStatus;
@@ -80,6 +105,7 @@ export interface NetworkTelemetrySnapshot {
   total_link_capacity_bps: number;
   active_connections_count: number;
   average_latency_ms: number | null;
+  average_packet_loss_pct?: number;
   overall_stability_pct: number;
   downloaded_today_bytes: number;
   uploaded_today_bytes: number;
@@ -148,6 +174,7 @@ export interface DownloadItem {
   max_retries: number;
   created_at_ms: number;
   completed_at_ms: number | null;
+  elapsed_ms: number;
   used_bonding_tunnel: boolean;
   segments: DownloadSegmentInfo[];
   active_paths: ActivePathContribution[];

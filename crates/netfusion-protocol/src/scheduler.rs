@@ -3,10 +3,15 @@ use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BondingPolicy {
+    #[serde(alias = "Adaptive", alias = "AdaptiveBonding")]
     Smart,
+    #[serde(alias = "SpeedPriority")]
     MaxSpeed,
+    #[serde(alias = "StabilityPriority")]
     Balanced,
+    #[serde(alias = "FailoverMode")]
     Failover,
+    #[serde(alias = "DownloadAcceleration")]
     Custom,
 }
 

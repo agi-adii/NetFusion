@@ -74,6 +74,7 @@ impl Database {
                 max_retries INTEGER NOT NULL DEFAULT 5,
                 created_at_ms INTEGER NOT NULL,
                 completed_at_ms INTEGER,
+                elapsed_ms INTEGER NOT NULL DEFAULT 0,
                 used_bonding_tunnel INTEGER NOT NULL DEFAULT 0
             );
 
@@ -121,6 +122,12 @@ impl Database {
             ",
         )
         .map_err(|e| format!("SQLite schema init error: {e}"))?;
+
+        // Seamless schema migration for existing databases created prior to elapsed_ms tracking
+        let _ = conn.execute(
+            "ALTER TABLE downloads ADD COLUMN elapsed_ms INTEGER NOT NULL DEFAULT 0",
+            [],
+        );
 
         let salt_hex: String = match conn.query_row(
             "SELECT value FROM settings_kv WHERE key = 'vault_salt'",
@@ -445,13 +452,13 @@ impl Database {
                     status, priority, supports_range, avg_speed_bps, speed_limit_bps,
                     scheduled_at_ms, expected_checksum, checksum_algorithm, computed_checksum,
                     checksum_verified, error_message, retry_count, max_retries,
-                    created_at_ms, completed_at_ms, used_bonding_tunnel
+                    created_at_ms, completed_at_ms, elapsed_ms, used_bonding_tunnel
                 ) VALUES (
                     ?1, ?2, ?3, ?4, ?5, ?6, ?7,
                     ?8, ?9, ?10, ?11, ?12,
                     ?13, ?14, ?15, ?16,
                     ?17, ?18, ?19, ?20,
-                    ?21, ?22, ?23
+                    ?21, ?22, ?23, ?24
                 )",
                 params![
                     item.id,
@@ -476,6 +483,7 @@ impl Database {
                     item.max_retries,
                     item.created_at_ms as i64,
                     item.completed_at_ms.map(|v| v as i64),
+                    item.elapsed_ms as i64,
                     if item.used_bonding_tunnel { 1 } else { 0 },
                 ],
             );
@@ -554,7 +562,7 @@ impl Database {
                     status, priority, supports_range, avg_speed_bps, speed_limit_bps,
                     scheduled_at_ms, expected_checksum, checksum_algorithm, computed_checksum,
                     checksum_verified, error_message, retry_count, max_retries,
-                    created_at_ms, completed_at_ms, used_bonding_tunnel
+                    created_at_ms, completed_at_ms, used_bonding_tunnel, elapsed_ms
              FROM downloads ORDER BY created_at_ms DESC",
         ) {
             if let Ok(rows) = stmt.query_map([], |r| {
@@ -571,6 +579,16 @@ impl Database {
                     status = DownloadStatus::Queued;
                 }
                 let verified_opt: Option<i64> = r.get(16)?;
+                let created_at_ms = r.get::<_, i64>(20)?.max(0) as u64;
+                let completed_at_ms = r.get::<_, Option<i64>>(21)?.map(|v| v.max(0) as u64);
+                let mut elapsed_ms = r.get::<_, Option<i64>>(23)?.unwrap_or(0).max(0) as u64;
+                if elapsed_ms == 0 {
+                    if let Some(comp) = completed_at_ms {
+                        if comp > created_at_ms {
+                            elapsed_ms = comp - created_at_ms;
+                        }
+                    }
+                }
                 Ok(DownloadItem {
                     id: id.clone(),
                     url: r.get(1)?,
@@ -594,8 +612,9 @@ impl Database {
                     error_message: r.get(17)?,
                     retry_count: r.get(18)?,
                     max_retries: r.get(19)?,
-                    created_at_ms: r.get::<_, i64>(20)? as u64,
-                    completed_at_ms: r.get::<_, Option<i64>>(21)?.map(|v| v as u64),
+                    created_at_ms,
+                    completed_at_ms,
+                    elapsed_ms,
                     used_bonding_tunnel: r.get::<_, i64>(22)? != 0,
                     segments: seg_map.remove(&id).unwrap_or_default(),
                     active_paths: Vec::new(),

@@ -79,3 +79,66 @@ export function formatTimeShort(ms: number): string {
   return d.toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+/**
+ * Formats millisecond durations into human-readable download durations (e.g. "0.45s", "14.2s", "2m 08.4s", "1h 12m 05s").
+ */
+export function formatDurationMs(ms: number | null | undefined): string {
+  if (ms === null || ms === undefined || !isFinite(ms) || ms <= 0) {
+    return "0.0s";
+  }
+  if (ms < 1000) {
+    return `${Math.max(0.01, ms / 1000).toFixed(2)}s`;
+  }
+  const totalSecs = ms / 1000;
+  if (totalSecs < 60) {
+    return `${totalSecs.toFixed(1)}s`;
+  }
+  const wholeSecs = Math.floor(totalSecs);
+  if (wholeSecs < 3600) {
+    const mins = Math.floor(wholeSecs / 60);
+    const remSecs = ((ms % 60_000) / 1000).toFixed(1);
+    return `${mins}m ${remSecs}s`;
+  }
+  const hrs = Math.floor(wholeSecs / 3600);
+  const mins = Math.floor((wholeSecs % 3600) / 60);
+  const secs = wholeSecs % 60;
+  return `${hrs}h ${mins}m ${secs}s`;
+}
+
+/**
+ * Returns the real active download time in milliseconds for a download task,
+ * falling back to (completed_at_ms - created_at_ms) for legacy rows if needed.
+ */
+export function getDownloadDurationMs(item: {
+  elapsed_ms?: number | null;
+  created_at_ms: number;
+  completed_at_ms: number | null;
+}): number {
+  if (item.elapsed_ms && item.elapsed_ms > 0) {
+    return item.elapsed_ms;
+  }
+  if (item.completed_at_ms && item.created_at_ms && item.completed_at_ms > item.created_at_ms) {
+    return item.completed_at_ms - item.created_at_ms;
+  }
+  return 0;
+}
+
+export function bondingModeDisplayName(mode: string): string {
+  switch (mode) {
+    case "Smart":
+      return "Adaptive Bonding";
+    case "MaxSpeed":
+      return "Speed Priority";
+    case "Balanced":
+      return "Stability Priority";
+    case "Failover":
+      return "Failover Mode";
+    case "Custom":
+      return "Download Acceleration";
+    default:
+      return mode;
+  }
+}
+
+
+

@@ -19,8 +19,10 @@ import clsx from "clsx";
 import {
   formatBytes,
   formatByteSpeed,
+  formatDurationMs,
   formatEta,
   formatTimestamp,
+  getDownloadDurationMs,
 } from "../lib/format";
 import type { DownloadItem, DownloadPriority, DownloadStatus } from "../lib/types";
 import { FileTypeIcon, InterfaceIcon } from "../components/InterfaceBadge";
@@ -203,6 +205,12 @@ export const DownloadsPage: React.FC<DownloadsPageProps> = ({
                           {item.file_name}
                         </h3>
                         <DownloadStatusBadge status={item.status} />
+                        {item.status === "Completed" && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-500 dark:text-emerald-300 border border-emerald-400/35 tabular-nums">
+                            <Clock className="w-3 h-3" />
+                            Total Time: {formatDurationMs(getDownloadDurationMs(item))}
+                          </span>
+                        )}
                         {item.used_bonding_tunnel && (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-lavender-500/15 text-lavender-500 dark:text-lavender-300 border border-lavender-400/30">
                             Bonded Tunnel
@@ -227,11 +235,26 @@ export const DownloadsPage: React.FC<DownloadsPageProps> = ({
                           <strong>{formatBytes(item.downloaded_bytes)}</strong> /{" "}
                           {formatBytes(item.total_bytes)} ({pct.toFixed(1)}%)
                         </span>
-                        <span className="text-electric-600 dark:text-electric-400 font-semibold">
-                          Now: {formatByteSpeed(item.speed_bps)}
-                        </span>
+                        {item.status !== "Completed" && (
+                          <span className="text-electric-600 dark:text-electric-400 font-semibold">
+                            Now: {formatByteSpeed(item.speed_bps)}
+                          </span>
+                        )}
                         <span>Avg: {formatByteSpeed(item.avg_speed_bps)}</span>
-                        <span>ETA: {formatEta(item.eta_seconds)}</span>
+                        {item.status === "Completed" ? (
+                          <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
+                            <Clock className="w-3 h-3" />
+                            Total Task Time: {formatDurationMs(getDownloadDurationMs(item))}
+                          </span>
+                        ) : (
+                          <>
+                            <span className="inline-flex items-center gap-1 text-indigo-500 dark:text-indigo-300 font-medium">
+                              <Clock className="w-3 h-3" />
+                              Task Time: {formatDurationMs(getDownloadDurationMs(item))}
+                            </span>
+                            <span>ETA: {formatEta(item.eta_seconds)}</span>
+                          </>
+                        )}
                         {item.scheduled_at_ms && item.status === "Scheduled" && (
                           <span className="inline-flex items-center gap-1 text-amber-400">
                             <Clock className="w-3 h-3" />
@@ -407,9 +430,16 @@ export const DownloadsPage: React.FC<DownloadsPageProps> = ({
                 {isExpanded && (
                   <div className="mt-3.5 pt-3.5 border-t border-slate-200/70 dark:border-white/10 space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        Parallel Segment Map ({item.segments.length} Segments)
-                      </span>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          Parallel Segment Map ({item.segments.length} Segments)
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-electric-500/10 text-electric-600 dark:text-electric-300 border border-electric-400/25 tabular-nums">
+                          <Clock className="w-3 h-3" />
+                          {item.status === "Completed" ? "Total Time Taken:" : "Active Task Time:"}{" "}
+                          {formatDurationMs(getDownloadDurationMs(item))}
+                        </span>
+                      </div>
                       <TaskSpeedLimitEditor
                         currentLimitBps={item.speed_limit_bps}
                         onApply={(bps) => onUpdateSpeedLimit(item.id, bps)}
