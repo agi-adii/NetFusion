@@ -140,6 +140,60 @@ pub fn run() {
             }
             let _tray = tray_builder.build(app)?;
 
+            // Start embedded local Multipath Bonding Server on 127.0.0.1:9443 (if not already bound)
+            // so the Bonding Tunnel works out-of-the-box with zero external setup required.
+            let db_for_local_srv = db.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Ok(listener) = tokio::net::TcpListener::bind("127.0.0.1:9443").await {
+                    let sessions: Arc<
+                        tokio::sync::Mutex<
+                            std::collections::HashMap<
+                                [u8; 16],
+                                Arc<bonding_server::session::BondingSession>,
+                            >,
+                        >,
+                    > = Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()));
+
+                    while let Ok((mut socket, peer_addr)) = listener.accept().await {
+                        let sessions_ref = sessions.clone();
+                        let psk = db_for_local_srv.load_bonding_psk();
+                        tokio::spawn(async move {
+                            let hs = tokio::time::timeout(
+                                std::time::Duration::from_secs(10),
+                                netfusion_protocol::server_handshake(&mut socket, &psk),
+                            )
+                            .await;
+                            if let Ok(Ok((meta, sealer, opener))) = hs {
+                                let session = {
+                                    let mut map = sessions_ref.lock().await;
+                                    map.entry(meta.session_id)
+                                        .or_insert_with(|| {
+                                            bonding_server::session::BondingSession::new(
+                                                meta.session_id,
+                                                true,
+                                            )
+                                        })
+                                        .clone()
+                                };
+                                session
+                                    .clone()
+                                    .attach_subflow(
+                                        meta.subflow_id,
+                                        format!("{}@{}", meta.interface_name, peer_addr.ip()),
+                                        socket,
+                                        sealer,
+                                        opener,
+                                    )
+                                    .await;
+                                if session.active_subflow_count().await == 0 {
+                                    sessions_ref.lock().await.remove(&meta.session_id);
+                                }
+                            }
+                        });
+                    }
+                }
+            });
+
             // Start 1 Hz real Windows adapter telemetry loop + download queue scheduler
             let mon_start = monitor.clone();
             let dl_start = downloader.clone();

@@ -224,6 +224,12 @@ impl Database {
                 if parsed.default_download_dir.is_empty() {
                     parsed.default_download_dir = default_dl_dir;
                 }
+                if parsed.bonding_server_endpoint.trim().is_empty() {
+                    parsed.bonding_server_endpoint = "127.0.0.1:9443".to_string();
+                }
+                if parsed.bonding_server_endpoint.starts_with("127.0.0.1:") {
+                    parsed.bonding_tunnel_enabled = true;
+                }
                 parsed.bonding_auth_token_set = self.get_raw_kv("bonding_psk_cipher").is_some();
                 parsed.bonding_auth_token_preview = "AEAD Encrypted in Vault".to_string();
                 return parsed;
@@ -239,7 +245,7 @@ impl Database {
             auto_retry_downloads: true,
             max_retries: 5,
             bonding_mode: BondingPolicy::Smart,
-            bonding_tunnel_enabled: false,
+            bonding_tunnel_enabled: true,
             bonding_server_endpoint: "127.0.0.1:9443".to_string(),
             bonding_auth_token_set: true,
             bonding_auth_token_preview: "AEAD Encrypted in Vault".to_string(),

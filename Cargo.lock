@@ -2481,6 +2481,7 @@ dependencies = [
 name = "netfusion"
 version = "1.0.0"
 dependencies = [
+ "bonding-server",
  "chacha20poly1305",
  "chrono",
  "dirs 5.0.1",

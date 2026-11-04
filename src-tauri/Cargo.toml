@@ -19,6 +19,7 @@ tauri-build = { version = "2.0", features = [] }
 
 [dependencies]
 netfusion-protocol = { path = "../crates/netfusion-protocol" }
+bonding-server = { path = "../crates/bonding-server" }
 tauri = { version = "2.2", features = ["tray-icon", "image-png", "custom-protocol"] }
 tauri-plugin-autostart = "2.2"
 tauri-plugin-dialog = "2.2"
